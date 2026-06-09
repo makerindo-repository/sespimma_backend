@@ -1,0 +1,16 @@
+-- +goose Up
+
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'serdik';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'gadik';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'korsis';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'pimpinan';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'operator';
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'medis';
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_first_login BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255);
+
+-- +goose Down
+
+ALTER TABLE users DROP COLUMN IF EXISTS is_first_login;
+ALTER TABLE users DROP COLUMN IF EXISTS reset_token;

@@ -11,18 +11,14 @@ import (
 func Register(r *gin.Engine, db *gorm.DB) {
 	api := r.Group("/api")
 
-	// Public route
 	api.POST("/login", controllers.Login)
 	api.POST("/reset_password", controllers.ResetPassword)
+	api.POST("/verify_reset_token", controllers.VerifyResetToken)
 
-	// Protected routes
 	api.Use(middleware.Auth())
 	api.POST("/generate_reset_token", controllers.GenerateResetToken)
 	api.POST("/update_password", controllers.UpdatePassword)
 
-	// =========================
-	// UserRewards routes
-	// =========================
 	userRewardCtrl := controllers.UserRewardController{DB: db}
 	api.GET("/user_rewards", userRewardCtrl.GetAll)
 	api.GET("/user_rewards/pending", userRewardCtrl.GetPendingApproval)
@@ -31,9 +27,6 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	api.DELETE("/user_rewards/:id", userRewardCtrl.Delete)
 	api.PUT("/user_rewards/:id/approve", userRewardCtrl.Approve)
 
-	// =========================
-	// PunishmentLogs routes
-	// =========================
 	punishmentLogCtrl := controllers.PunishmentLogController{DB: db}
 	api.GET("/punishment_logs", punishmentLogCtrl.GetAll)
 	api.GET("/punishment_logs/user/:user_id", punishmentLogCtrl.GetByUserID)
@@ -41,9 +34,6 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	api.PUT("/punishment_logs/:id", punishmentLogCtrl.Update)
 	api.DELETE("/punishment_logs/:id", punishmentLogCtrl.Delete)
 
-	// =========================
-	// Kegiatan routes
-	// =========================
 	kegiatanCtrl := controllers.KegiatanController{DB: db}
 	api.GET("/kegiatan", kegiatanCtrl.GetAll)
 	api.GET("/kegiatan/rutin", kegiatanCtrl.GetRutin)
@@ -52,29 +42,20 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	api.PUT("/kegiatan/:id", kegiatanCtrl.Update)
 	api.DELETE("/kegiatan/:id", kegiatanCtrl.Delete)
 
-	// =========================
-	// User routes
-	// =========================
 	user := r.Group("/users")
 	{
 		user.GET("", controllers.GetAllUsers)
-
 		user.GET("/locations", controllers.GetAllUserLocations)
-
 		user.GET("/:id/location", controllers.GetUserLocation)
-
 		user.PUT("/:id/location", controllers.UpdateUserLocation)
-
 		user.PUT("/me/location", middleware.Auth(), controllers.UpdateMyLocation)
 	}
 
 	akademikController := controllers.NewAkademikController()
-
 	akademik := api.Group("/akademik")
 	{
 		akademik.GET("", akademikController.GetAll)
 		akademik.GET("/serdik/:serdikId", akademikController.GetBySerdikID)
-
 		akademik.POST("", akademikController.Create)
 		akademik.PUT("/:id", akademikController.Update)
 		akademik.DELETE("/:id", akademikController.Delete)
