@@ -10,7 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Sesuaikan versi Go dengan yang ada di laptopmu (misal 1.22 atau 1.25)
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
@@ -21,10 +20,10 @@ jobs:
       - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }} # <-- Harus sama persis dengan yang di Settings GitHub
+          username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "api-go,migrations/" # <-- .env sudah dihapus dari sini
-          target: "/var/www/sespimma-api-go" # <-- Target folder yang benar
+          source: "api-go,migrations/"
+          target: "/var/www/sespimma-api-go"
           overwrite: true
 
       - uses: appleboy/ssh-action@v1.2.2
@@ -33,9 +32,11 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            source ~/.bashrc || true
+            source ~/.profile || true
             cd /var/www/sespimma-api-go
             chmod +x api-go
-            
-            # Restart pakai PM2, bukan systemctl
             pm2 restart backend-golang
             pm2 save
