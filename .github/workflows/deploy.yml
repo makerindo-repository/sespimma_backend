@@ -34,9 +34,10 @@ jobs:
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            source ~/.bashrc || true
-            source ~/.profile || true
+            
             cd /var/www/sespimma-api-go
             chmod +x api-go
-            pm2 restart backend-golang
+            
+            # JURUS PAMUNGKAS: Restart, kalau gagal/nggak ketemu, langsung start baru!
+            pm2 restart backend-golang || pm2 start ./api-go --name "backend-golang"
             pm2 save
