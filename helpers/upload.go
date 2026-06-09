@@ -1,8 +1,6 @@
 package helpers
 
 import (
-    "image"
-    "os"
     "github.com/disintegration/imaging"
 )
 
