@@ -36,6 +36,7 @@ DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 DROP TRIGGER IF EXISTS trg_files_updated_at ON files;
 DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS gender_enum CASCADE;
 DROP TYPE IF EXISTS assignment_type CASCADE;
 DROP TYPE IF EXISTS submission_status CASCADE;
 DROP TYPE IF EXISTS izin_status CASCADE;
