@@ -23,7 +23,7 @@ func (r *userRepo) FindByID(id uint) (*models.User, error) {
 }
 
 func (r *userRepo) Save(user *models.User) error {
-	return r.db.Save(user).Error
+	return r.db.Omit("location", "Location").Save(user).Error
 }
 
 func (r *userRepo) UpdateLocation(userID interface{}, lat, lng float64) error {

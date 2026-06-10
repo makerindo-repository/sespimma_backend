@@ -57,7 +57,7 @@ func (s *AuthService) Login(nrpNip, password, fcmToken string) (*LoginResult, er
 		user.FcmToken = &fcmToken
 	}
 	if err := s.users.Save(user); err != nil {
-		return nil, fmt.Errorf("gagal menyimpan sesi")
+		return nil, fmt.Errorf("gagal menyimpan sesi: %v", err)
 	}
 
 	return &LoginResult{User: user, AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
@@ -191,7 +191,7 @@ func (s *AuthService) RefreshAccessToken(refreshToken string) (*LoginResult, err
 	user.CurrentToken = &tokens.AccessToken
 	user.RefreshToken = &tokens.RefreshToken
 	if err := s.users.Save(user); err != nil {
-		return nil, fmt.Errorf("gagal menyimpan sesi")
+		return nil, fmt.Errorf("gagal menyimpan sesi: %v", err)
 	}
 
 	return &LoginResult{User: user, AccessToken: tokens.AccessToken, RefreshToken: tokens.RefreshToken}, nil
