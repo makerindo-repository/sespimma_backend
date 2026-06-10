@@ -193,29 +193,32 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 		IsRoutine     bool             `json:"is_routine"`
 		IsTraining    bool             `json:"is_training"`
 		CreatedAt     string           `json:"created_at"`
+		CreatorName   string           `json:"creator"`
 		PolygonPoints *json.RawMessage `json:"polygon_points,omitempty"`
 	}
 
 	rows, err := config.DB.Raw(`
 		SELECT
-			id::text                                        AS id,
-			nama,
-			nama_lokasi,
-			COALESCE(ST_Y(location::geometry), 0.0)        AS latitude,
-			COALESCE(ST_X(location::geometry), 0.0)        AS longitude,
-			COALESCE(radius, 100.0)                        AS radius,
-			tanggal_mulai::text                            AS tanggal_mulai,
-			waktu_mulai::text                              AS waktu_mulai,
-			waktu_selesai::text                            AS waktu_selesai,
-			batas_waktu_penugasan::text                    AS batas_waktu_penugasan,
-			COALESCE(cutoff_time, batas_waktu_penugasan)::text AS cutoff_time,
-			is_rutin,
-			is_pelatihan,
-			created_at::text                               AS created_at,
-			polygon_points
-		FROM kegiatan
-		WHERE tanggal_mulai::date = CURRENT_DATE
-		  AND location IS NOT NULL
+			k.id::text                                        AS id,
+			k.nama,
+			k.nama_lokasi,
+			COALESCE(ST_Y(k.location::geometry), 0.0)        AS latitude,
+			COALESCE(ST_X(k.location::geometry), 0.0)        AS longitude,
+			COALESCE(k.radius, 100.0)                        AS radius,
+			k.tanggal_mulai::text                            AS tanggal_mulai,
+			k.waktu_mulai::text                              AS waktu_mulai,
+			k.waktu_selesai::text                            AS waktu_selesai,
+			k.batas_waktu_penugasan::text                    AS batas_waktu_penugasan,
+			COALESCE(k.cutoff_time, k.batas_waktu_penugasan)::text AS cutoff_time,
+			k.is_rutin,
+			k.is_pelatihan,
+			k.created_at::text                               AS created_at,
+			k.polygon_points,
+			COALESCE(u.nama_lengkap, 'Korsis')               AS creator_name
+		FROM kegiatan k
+		LEFT JOIN users u ON u.id = k.created_id
+		WHERE k.tanggal_mulai::date = CURRENT_DATE
+		  AND k.location IS NOT NULL
 	`).Rows()
 	if err != nil {
 		response.InternalError(c, err.Error())
@@ -226,14 +229,14 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 	var zones []ZoneResp
 	for rows.Next() {
 		var z struct {
-			ID, Nama, NamaLokasi, TanggalMulai, WaktuMulai, WaktuSelesai, BatasWaktu, Cutoff, CreatedAt string
+			ID, Nama, NamaLokasi, TanggalMulai, WaktuMulai, WaktuSelesai, BatasWaktu, Cutoff, CreatedAt, CreatorName string
 			Lat, Lng, Radius                                                                            float64
 			IsRutin, IsPelatihan                                                                        bool
 			PolygonPoints                                                                               *json.RawMessage
 		}
 		if err := rows.Scan(&z.ID, &z.Nama, &z.NamaLokasi, &z.Lat, &z.Lng, &z.Radius,
 			&z.TanggalMulai, &z.WaktuMulai, &z.WaktuSelesai, &z.BatasWaktu, &z.Cutoff,
-			&z.IsRutin, &z.IsPelatihan, &z.CreatedAt, &z.PolygonPoints); err != nil {
+			&z.IsRutin, &z.IsPelatihan, &z.CreatedAt, &z.PolygonPoints, &z.CreatorName); err != nil {
 			continue
 		}
 		base := z.TanggalMulai[:10] // "YYYY-MM-DD"
@@ -251,6 +254,7 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 			IsRoutine:     z.IsRutin,
 			IsTraining:    z.IsPelatihan,
 			CreatedAt:     z.CreatedAt,
+			CreatorName:   z.CreatorName,
 			PolygonPoints: z.PolygonPoints,
 		})
 	}

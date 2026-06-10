@@ -45,6 +45,8 @@ func (s *KegiatanService) Update(id string, input *models.Kegiatan) error {
 	existing.QRCode = input.QRCode
 	existing.Radius = input.Radius
 	existing.Location = input.Location
+	existing.CutoffTime = input.CutoffTime
+	existing.PolygonPoints = input.PolygonPoints
 	return s.repo.Update(existing)
 }
 
