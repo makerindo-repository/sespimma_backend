@@ -51,6 +51,12 @@ func (h *KegiatanHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+
+	uid, exists := c.Get("user_id")
+	if exists {
+		input.CreatedID = int64(uid.(float64))
+	}
+
 	if err := h.svc.Create(&input); err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -64,6 +70,12 @@ func (h *KegiatanHandler) Update(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+
+	uid, exists := c.Get("user_id")
+	if exists {
+		input.CreatedID = int64(uid.(float64))
+	}
+
 	if err := h.svc.Update(c.Param("id"), &input); err != nil {
 		response.NotFound(c, "kegiatan tidak ditemukan")
 		return
