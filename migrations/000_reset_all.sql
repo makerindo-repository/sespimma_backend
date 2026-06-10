@@ -4,11 +4,11 @@
 
 TRUNCATE _ci_migrations;
 
--- Drop everything in reverse order (child tables first)
+-- Drop ALL tables in reverse dependency order
 DROP TABLE IF EXISTS health_records CASCADE;
-DROP TABLE IF EXISTS sociometry_responses CASCADE;
-DROP TABLE IF EXISTS sociometry_questions CASCADE;
-DROP TABLE IF EXISTS sociometry_sessions CASCADE;
+DROP TABLE IF EXISTS serdik_health_data CASCADE;
+DROP TABLE IF EXISTS sociometry_evaluations CASCADE;
+DROP TABLE IF EXISTS sociometry_periods CASCADE;
 DROP TABLE IF EXISTS izin_requests CASCADE;
 DROP TABLE IF EXISTS submissions CASCADE;
 DROP TABLE IF EXISTS assignments CASCADE;
@@ -19,10 +19,14 @@ DROP TABLE IF EXISTS penilaian_mental CASCADE;
 DROP TABLE IF EXISTS penilaian_akademik CASCADE;
 DROP TABLE IF EXISTS penilaian_jasmani CASCADE;
 DROP TABLE IF EXISTS mental_components CASCADE;
-DROP TABLE IF EXISTS akademik_components CASCADE;
+DROP TABLE IF EXISTS akademik_component CASCADE;
 DROP TABLE IF EXISTS jasmani_components CASCADE;
-DROP TABLE IF EXISTS punishments CASCADE;
-DROP TABLE IF EXISTS rewards CASCADE;
+DROP TABLE IF EXISTS punishment_logs CASCADE;
+DROP TABLE IF EXISTS punishment_items CASCADE;
+DROP TABLE IF EXISTS punishment_categories CASCADE;
+DROP TABLE IF EXISTS user_rewards CASCADE;
+DROP TABLE IF EXISTS reward_items CASCADE;
+DROP TABLE IF EXISTS reward_categories CASCADE;
 DROP TABLE IF EXISTS serdik CASCADE;
 DROP TABLE IF EXISTS gadik CASCADE;
 DROP TABLE IF EXISTS korsis CASCADE;
@@ -32,9 +36,15 @@ DROP TABLE IF EXISTS pimpinan CASCADE;
 DROP TABLE IF EXISTS files CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
+-- Drop ALL triggers
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 DROP TRIGGER IF EXISTS trg_files_updated_at ON files;
+DROP TRIGGER IF EXISTS trg_serdik_updated_at ON serdik;
+
+-- Drop ALL functions
 DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
+
+-- Drop ALL custom types
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS gender_enum CASCADE;
 DROP TYPE IF EXISTS jasmani_age_group CASCADE;
