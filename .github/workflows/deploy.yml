@@ -44,59 +44,35 @@ jobs:
 
       - name: Run migrations, swap binary, restart
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          DB_PASS: ${{ secrets.DB_PASSWORD }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
+          envs: DB_PASS
           script: |
             set -e
-            APP_DIR="${{ env.APP_DIR }}"
-
-            # ── Ensure runtime directories ────────────────────────────────
-            mkdir -p "$APP_DIR/uploads/profile"
-
-            # ── Atomic binary swap (avoids ETXTBSY "text file busy") ──────
-            # mv on the same filesystem is a single rename(2) syscall.
-            # PM2 keeps executing the old inode (unlinked but in memory)
-            # until pm2 restart picks up the new file — zero downtime.
-            chmod +x "$APP_DIR/api-go.new"
-            mv -f "$APP_DIR/api-go.new" "$APP_DIR/api-go"
-
-            # ── Idempotent migration runner ───────────────────────────────
-            PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
-              -U dafayape -d db_sespimma -h 127.0.0.1 \
-              -c "CREATE TABLE IF NOT EXISTS _ci_migrations (
-                    filename   VARCHAR(255) PRIMARY KEY,
-                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                  );"
-
-            for file in "$APP_DIR"/migrations/*.sql; do
+            APP=/var/www/sespimma-api-go
+            mkdir -p "$APP/uploads/profile"
+            chmod +x "$APP/api-go.new"
+            mv -f "$APP/api-go.new" "$APP/api-go"
+            export PGPASSWORD="$DB_PASS"
+            psql -U dafayape -d db_sespimma -h 127.0.0.1 -c "CREATE TABLE IF NOT EXISTS _ci_migrations (filename VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+            for file in "$APP"/migrations/*.sql; do
               [ -f "$file" ] || continue
-              filename=$(basename "$file")
-              applied=$(PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
-                -U dafayape -d db_sespimma -h 127.0.0.1 \
-                -tAc "SELECT 1 FROM _ci_migrations WHERE filename='$filename';")
+              fname="$(basename "$file")"
+              applied="$(psql -U dafayape -d db_sespimma -h 127.0.0.1 -tAc "SELECT 1 FROM _ci_migrations WHERE filename='"$fname"';")"
               if [ "$applied" != "1" ]; then
-                echo "Applying $filename ..."
-                PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
-                  -U dafayape -d db_sespimma -h 127.0.0.1 -f "$file"
-                PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
-                  -U dafayape -d db_sespimma -h 127.0.0.1 \
-                  -c "INSERT INTO _ci_migrations (filename) VALUES ('$filename');"
+                echo "Applying $fname ..."
+                psql -U dafayape -d db_sespimma -h 127.0.0.1 -f "$file"
+                psql -U dafayape -d db_sespimma -h 127.0.0.1 -c "INSERT INTO _ci_migrations (filename) VALUES ('"$fname"');"
               else
-                echo "Skipping $filename (already applied)"
+                echo "Skipping $fname (already applied)"
               fi
             done
-
-            # ── Restart via PM2 ───────────────────────────────────────────
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-            pm2 restart backend-golang \
-              || pm2 start "$APP_DIR/api-go" \
-                   --name "backend-golang" \
-                   --cwd "$APP_DIR" \
-                   --env production
+            [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+            pm2 restart backend-golang || pm2 start "$APP/api-go" --name "backend-golang" --cwd "$APP" --env production
             pm2 save
-
             echo "Deploy complete"
