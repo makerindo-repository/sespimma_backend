@@ -58,15 +58,16 @@ jobs:
             chmod +x "$APP/api-go.new"
             mv -f "$APP/api-go.new" "$APP/api-go"
             export PGPASSWORD="$DB_PASS"
-            psql -U dafayape -d db_sespimma -h 127.0.0.1 -c "CREATE TABLE IF NOT EXISTS _ci_migrations (filename VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+            PSQL="psql -U dafayape -d db_sespimma -h 127.0.0.1"
+            $PSQL -c "CREATE TABLE IF NOT EXISTS _ci_migrations (filename VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
             for file in "$APP"/migrations/*.sql; do
               [ -f "$file" ] || continue
               fname="$(basename "$file")"
-              applied="$(psql -U dafayape -d db_sespimma -h 127.0.0.1 -tAc "SELECT 1 FROM _ci_migrations WHERE filename='"$fname"';")"
+              applied="$($PSQL -tAc "SELECT 1 FROM _ci_migrations WHERE filename='$fname';")"
               if [ "$applied" != "1" ]; then
                 echo "Applying $fname ..."
-                psql -U dafayape -d db_sespimma -h 127.0.0.1 -f "$file"
-                psql -U dafayape -d db_sespimma -h 127.0.0.1 -c "INSERT INTO _ci_migrations (filename) VALUES ('"$fname"');"
+                $PSQL --set ON_ERROR_STOP=on -f "$file"
+                $PSQL -c "INSERT INTO _ci_migrations (filename) VALUES ('$fname');"
               else
                 echo "Skipping $fname (already applied)"
               fi

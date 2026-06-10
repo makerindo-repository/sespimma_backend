@@ -10,10 +10,7 @@ $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
 CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS postgis_topology;
-
 
 -- +goose Down
 DROP FUNCTION IF EXISTS update_updated_at_column;
 DROP EXTENSION IF EXISTS postgis;
-DROP EXTENSION IF EXISTS postgis_topology;
