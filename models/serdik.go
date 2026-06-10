@@ -38,6 +38,10 @@ type Serdik struct {
     Jabatan         *string   `gorm:"type:varchar(150)" json:"jabatan,omitempty"`
     Satker          *string   `gorm:"type:varchar(150)" json:"satker,omitempty"`
 
+    Nosis           *string   `gorm:"type:varchar(100)" json:"nosis,omitempty"`
+    JabatanSenat    *string   `gorm:"type:varchar(255)" json:"jabatan_senat,omitempty"`
+    Angkatan        *string   `gorm:"type:varchar(100)" json:"angkatan,omitempty"`
+
     PokjarID        uint      `gorm:"not null;index" json:"pokjar_id"`
     Pokjar          *Pokjar   `gorm:"foreignKey:PokjarID;references:ID;constraint:OnDelete:RESTRICT" json:"pokjar,omitempty"`
 

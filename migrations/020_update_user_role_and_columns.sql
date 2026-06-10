@@ -1,3 +1,4 @@
+-- +goose NO TRANSACTION
 -- +goose Up
 
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'serdik';

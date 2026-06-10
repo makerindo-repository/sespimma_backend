@@ -1,43 +1,103 @@
-name: Deploy to VPS
+name: Deploy Backend to VPS
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'sespimma_backend/**'
+  workflow_dispatch:
+
+env:
+  APP_DIR: /var/www/sespimma-api-go
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: sespimma_backend
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version-file: sespimma_backend/go.mod
+          cache-dependency-path: sespimma_backend/go.sum
 
-      - run: go mod tidy
-      - run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o api-go ./cmd/main.go
+      - name: Tidy & verify
+        run: |
+          go mod tidy
+          go mod verify
 
-      - uses: appleboy/scp-action@v0.1.7
+      - name: Build Linux binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags="-w -s" -o api-go ./cmd/main.go
+
+      - name: Copy binary + migrations to VPS
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "api-go,migrations/"
-          target: "/var/www/sespimma-api-go"
+          source: "sespimma_backend/api-go,sespimma_backend/migrations/"
+          target: ${{ env.APP_DIR }}
+          strip_components: 1
           overwrite: true
 
-      - uses: appleboy/ssh-action@v1.2.2
+      - name: Run migrations, ensure dirs, restart
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
+            set -e
+            APP_DIR="${{ env.APP_DIR }}"
+
+            # ── Ensure runtime directories ────────────────────────────────
+            mkdir -p "$APP_DIR/uploads/profile"
+            chmod +x "$APP_DIR/api-go"
+
+            # ── Idempotent migration runner ───────────────────────────────
+            PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
+              -U dafayape -d db_sespimma -h 127.0.0.1 \
+              -c "CREATE TABLE IF NOT EXISTS _ci_migrations (
+                    filename   VARCHAR(255) PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                  );"
+
+            for file in "$APP_DIR"/migrations/*.sql; do
+              [ -f "$file" ] || continue
+              filename=$(basename "$file")
+              applied=$(PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
+                -U dafayape -d db_sespimma -h 127.0.0.1 \
+                -tAc "SELECT 1 FROM _ci_migrations WHERE filename='$filename';")
+              if [ "$applied" != "1" ]; then
+                echo "Applying $filename ..."
+                PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
+                  -U dafayape -d db_sespimma -h 127.0.0.1 -f "$file"
+                PGPASSWORD="${{ secrets.DB_PASSWORD }}" psql \
+                  -U dafayape -d db_sespimma -h 127.0.0.1 \
+                  -c "INSERT INTO _ci_migrations (filename) VALUES ('$filename');"
+              else
+                echo "Skipping $filename (already applied)"
+              fi
+            done
+
+            # ── Restart via PM2 ───────────────────────────────────────────
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            
-            cd /var/www/sespimma-api-go
-            chmod +x api-go
-            
-            # JURUS PAMUNGKAS: Restart, kalau gagal/nggak ketemu, langsung start baru!
-            pm2 restart backend-golang || pm2 start ./api-go --name "backend-golang"
+
+            pm2 restart backend-golang \
+              || pm2 start "$APP_DIR/api-go" \
+                   --name "backend-golang" \
+                   --cwd "$APP_DIR" \
+                   --env production
             pm2 save
+
+            echo "Deploy complete"

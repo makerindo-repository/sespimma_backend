@@ -1,0 +1,16 @@
+# Build artifacts
+/bin/
+api-go
+sespima_api
+
+# Runtime
+uploads/
+*.log
+
+# Secrets
+.env
+
+# Editor
+.idea/
+.vscode/
+*.swp
