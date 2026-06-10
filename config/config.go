@@ -25,7 +25,7 @@ func Load() *Config {
 		DBName:     requireEnv("DB_NAME"),
 		DBPort:     getEnvOrDefault("DB_PORT", "5432"),
 		JWTSecret:  requireEnv("JWT_SECRET"),
-		ServerPort: getEnvOrDefault("SERVER_PORT", "8000"),
+		ServerPort: getEnvOrDefault("SERVER_PORT", "8080"),
 	}
 	App = cfg
 	return cfg
