@@ -7,8 +7,8 @@ import (
 type User struct {
 	ID           uint    `gorm:"primaryKey;autoIncrement" json:"id"`
 	Email        string  `gorm:"type:varchar(150);unique;not null" json:"email"`
-	NRP          *string `gorm:"type:varchar(50);unique" json:"nrp"`
-	NIP          *string `gorm:"type:varchar(50);unique" json:"nip"`
+	NRP          *string `gorm:"column:nrp;type:varchar(50);unique" json:"nrp"`
+	NIP          *string `gorm:"column:nip;type:varchar(50);unique" json:"nip"`
 	Password     string  `gorm:"type:varchar(255);not null" json:"-"`
 	Role         string  `gorm:"type:user_role;default:students" json:"role"`
 	IsActive     bool    `gorm:"default:true" json:"is_active"`
