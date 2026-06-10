@@ -146,9 +146,12 @@ func (h *UserHandler) UploadProfilePhoto(c *gin.Context) {
 		return
 	}
 
-	scheme := "http"
-	if c.Request.TLS != nil {
-		scheme = "https"
+	scheme := c.Request.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		scheme = "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
 	}
 	photoURL := fmt.Sprintf("%s://%s/uploads/profile/%s", scheme, c.Request.Host, filename)
 
