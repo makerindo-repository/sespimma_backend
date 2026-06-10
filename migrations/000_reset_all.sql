@@ -37,10 +37,19 @@ DROP TRIGGER IF EXISTS trg_files_updated_at ON files;
 DROP FUNCTION IF EXISTS update_updated_at_column CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS gender_enum CASCADE;
+DROP TYPE IF EXISTS jasmani_age_group CASCADE;
+DROP TYPE IF EXISTS mental_indicator_type CASCADE;
+DROP TYPE IF EXISTS reward_item_period_type CASCADE;
+DROP TYPE IF EXISTS user_reward_status CASCADE;
+DROP TYPE IF EXISTS attendance_status_enum CASCADE;
+DROP TYPE IF EXISTS assignment_status_enum CASCADE;
 DROP TYPE IF EXISTS assignment_type CASCADE;
 DROP TYPE IF EXISTS submission_status CASCADE;
+DROP TYPE IF EXISTS submission_status_enum CASCADE;
 DROP TYPE IF EXISTS izin_status CASCADE;
+DROP TYPE IF EXISTS izin_status_enum CASCADE;
 DROP TYPE IF EXISTS izin_type CASCADE;
+DROP TYPE IF EXISTS sociometry_period_type CASCADE;
 
 -- +goose Down
 -- no-op: this is a one-time reset
