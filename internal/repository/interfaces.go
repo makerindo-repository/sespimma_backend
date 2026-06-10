@@ -1,6 +1,10 @@
 package repository
 
-import "sespima_api/models"
+import (
+	"time"
+
+	"sespima_api/models"
+)
 
 type UserRepository interface {
 	FindByNrpOrNip(nrpNip string) (*models.User, error)
@@ -42,6 +46,10 @@ type AbsensiRepository interface {
 	GetByUserID(userID uint64) ([]models.Absensi, error)
 	GetByKegiatanID(kegiatanID uint64) ([]models.Absensi, error)
 	GetSummaryBySerdik(serdikID uint64) (*AbsensiSummary, error)
+	// GetRecapBySerdik derives the strict per-activity attendance recap
+	// (hadir/telat/izin/tk) by cross-referencing check-ins, approved izin,
+	// and missed zones. Returns derived records plus an accurate summary.
+	GetRecapBySerdik(serdikID uint64) ([]RecapRecord, *AbsensiSummary, error)
 }
 
 type AbsensiSummary struct {
@@ -49,6 +57,23 @@ type AbsensiSummary struct {
 	LateCount       int `json:"late_count"`
 	PermissionCount int `json:"permission_count"`
 	AbsentCount     int `json:"absent_count"`
+}
+
+// RecapKegiatan is the zone/activity context embedded in a recap record.
+type RecapKegiatan struct {
+	Nama       string `json:"nama"`
+	NamaLokasi string `json:"nama_lokasi"`
+}
+
+// RecapRecord is one derived attendance row for a single zone/activity.
+type RecapRecord struct {
+	ID         *uint64       `json:"id"`          // absensi id, null if no check-in
+	KegiatanID uint64        `json:"kegiatan_id"` // the zone id
+	Datetime   time.Time     `json:"datetime"`
+	Status     string        `json:"status"` // hadir | telat | izin | tk
+	Method     string        `json:"method"` // gps | qr_code | -
+	IsLate     bool          `json:"is_late"`
+	Kegiatan   RecapKegiatan `json:"kegiatan"`
 }
 
 type AkademikRepository interface {
@@ -82,14 +107,18 @@ type RewardRepository interface {
 	Update(id string, input *models.UserReward) error
 	Delete(id string) error
 	Approve(id string, approverID int64) error
+	Reject(id string, approverID int64, reason string) error
 }
 
 type PunishmentRepository interface {
 	GetAll() ([]models.PunishmentLog, error)
 	GetByUserID(userID string) ([]models.PunishmentLog, error)
+	GetPending() ([]models.PunishmentLog, error)
 	Create(p *models.PunishmentLog) error
 	Update(id string, input *models.PunishmentLog) error
 	Delete(id string) error
+	Approve(id string, approverID int64) error
+	Reject(id string, approverID int64, reason string) error
 }
 
 type IzinRepository interface {

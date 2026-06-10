@@ -112,7 +112,7 @@ func (h *KegiatanHandler) CheckIn(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	
+
 	input.UserID = &userID
 	serdikID := uint64(serdik.ID)
 	input.SerdikID = &serdikID
@@ -130,7 +130,7 @@ func (h *KegiatanHandler) GetAttendanceBySerdik(c *gin.Context) {
 		response.BadRequest(c, "invalid serdik_id")
 		return
 	}
-	list, summary, err := h.svc.GetAttendanceBySerdik(id)
+	list, summary, err := h.svc.GetAttendanceRecap(id)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -152,7 +152,7 @@ func (h *KegiatanHandler) GetMyAttendance(c *gin.Context) {
 		return
 	}
 
-	list, summary, err := h.svc.GetAttendanceBySerdik(uint64(serdik.ID))
+	list, summary, err := h.svc.GetAttendanceRecap(uint64(serdik.ID))
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -224,8 +224,8 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 	for rows.Next() {
 		var z struct {
 			ID, Nama, NamaLokasi, TanggalMulai, WaktuMulai, WaktuSelesai, BatasWaktu, Cutoff, CreatedAt string
-			Lat, Lng, Radius                                                                               float64
-			IsRutin, IsPelatihan                                                                           bool
+			Lat, Lng, Radius                                                                            float64
+			IsRutin, IsPelatihan                                                                        bool
 		}
 		if err := rows.Scan(&z.ID, &z.Nama, &z.NamaLokasi, &z.Lat, &z.Lng, &z.Radius,
 			&z.TanggalMulai, &z.WaktuMulai, &z.WaktuSelesai, &z.BatasWaktu, &z.Cutoff,

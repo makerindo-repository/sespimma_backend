@@ -16,6 +16,9 @@ type Handlers struct {
 	Punishment *handler.PunishmentHandler
 	Assignment *handler.AssignmentHandler
 	WS         *handler.WSHandler
+	Serdik     *handler.SerdikHandler
+	Dashboard  *handler.DashboardHandler
+	RP         *handler.RewardPunishmentHandler
 }
 
 func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
@@ -43,6 +46,11 @@ func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
 	// Profile photo (authenticated user's own photo)
 	api.POST("/me/photo", h.User.UploadProfilePhoto)
 	api.DELETE("/me/photo", h.User.DeleteProfilePhoto)
+
+	// Serdik self-profile (role-guarded)
+	serdik := api.Group("/serdik", middleware.RequireRoles("serdik"))
+	serdik.GET("/me", h.Serdik.GetMe)
+	serdik.PUT("/me", h.Serdik.UpdateMe)
 
 	// Static file serving for uploaded profile photos
 	r.Static("/uploads", "./uploads")
@@ -137,25 +145,45 @@ func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
 		h.Assessment.AddHealthRecord,
 	)
 
-	// Rewards
+	// Rewards — Maker-Checker: patun/gadik create (forced pending),
+	// only korsis/operator approve or reject.
 	rw := api.Group("/user_rewards")
 	rw.GET("", h.Reward.GetAll)
-	rw.GET("/pending", middleware.RequireRoles("korsis", "patun", "operator"), h.Reward.GetPending)
-	rw.POST("", h.Reward.Create)
-	rw.PUT("/:id", h.Reward.Update)
-	rw.DELETE("/:id", h.Reward.Delete)
-	rw.PUT("/:id/approve",
-		middleware.RequireRoles("korsis", "patun", "pimpinan", "operator"),
-		h.Reward.Approve,
-	)
+	rw.GET("/pending", middleware.RequireRoles("korsis", "operator"), h.Reward.GetPending)
+	rw.POST("", middleware.RequireRoles("patun", "gadik", "operator"), h.Reward.Create)
+	rw.PUT("/:id", middleware.RequireRoles("patun", "gadik", "operator"), h.Reward.Update)
+	rw.DELETE("/:id", middleware.RequireRoles("patun", "gadik", "operator"), h.Reward.Delete)
+	rw.PUT("/:id/approve", middleware.RequireRoles("korsis", "operator"), h.Reward.Approve)
+	rw.PUT("/:id/reject", middleware.RequireRoles("korsis", "operator"), h.Reward.Reject)
 
-	// Punishments
+	// Punishments — Maker-Checker: patun/gadik create (forced pending),
+	// only korsis/operator approve or reject.
 	pun := api.Group("/punishment_logs")
 	pun.GET("", h.Punishment.GetAll)
+	pun.GET("/pending", middleware.RequireRoles("korsis", "operator"), h.Punishment.GetPending)
 	pun.GET("/user/:user_id", h.Punishment.GetByUserID)
-	pun.POST("", middleware.RequireRoles("korsis", "patun", "operator"), h.Punishment.Create)
-	pun.PUT("/:id", middleware.RequireRoles("korsis", "patun", "operator"), h.Punishment.Update)
-	pun.DELETE("/:id", middleware.RequireRoles("korsis", "patun", "operator"), h.Punishment.Delete)
+	pun.POST("", middleware.RequireRoles("patun", "gadik", "operator"), h.Punishment.Create)
+	pun.PUT("/:id", middleware.RequireRoles("patun", "gadik", "operator"), h.Punishment.Update)
+	pun.DELETE("/:id", middleware.RequireRoles("patun", "gadik", "operator"), h.Punishment.Delete)
+	pun.PUT("/:id/approve", middleware.RequireRoles("korsis", "operator"), h.Punishment.Approve)
+	pun.PUT("/:id/reject", middleware.RequireRoles("korsis", "operator"), h.Punishment.Reject)
+
+	// Aspect-based (Mental Kepribadian) reward/punishment Maker-Checker.
+	// Catalog is readable by makers + checker; records are created by makers.
+	makerCheckerRoles := []string{"patun", "gadik", "korsis", "operator"}
+	rp := api.Group("/rp")
+	rp.GET("/rules", middleware.RequireRoles(makerCheckerRoles...), h.RP.GetRules)
+	rp.GET("/serdik/search", middleware.RequireRoles(makerCheckerRoles...), h.RP.SearchSerdik)
+	rp.POST("/records", middleware.RequireRoles("patun", "gadik", "operator"), h.RP.CreateRecord)
+	rp.GET("/records/pending", middleware.RequireRoles("korsis", "operator"), h.RP.GetPending)
+	rp.GET("/records/serdik/:serdikId", middleware.RequireRoles(makerCheckerRoles...), h.RP.GetBySerdik)
+	rp.GET("/records/me", middleware.RequireRoles("serdik"), h.RP.GetMyRecords)
+
+	// Serdik dashboard (aggregated scores, rewards, punishments, history)
+	api.GET("/dashboard/serdik", middleware.RequireRoles("serdik"), h.Dashboard.GetSerdikDashboard)
+
+	// Unified Korsis approval inbox (pending rewards + punishments + izin)
+	api.GET("/inbox/korsis", middleware.RequireRoles("korsis", "operator"), h.Dashboard.GetKorsisInbox)
 
 	// Assignments (tugas)
 	asgn := api.Group("/assignments")

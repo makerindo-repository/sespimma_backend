@@ -17,3 +17,6 @@ func (s *RewardService) Create(r *models.UserReward) error          { return s.r
 func (s *RewardService) Update(id string, r *models.UserReward) error { return s.repo.Update(id, r) }
 func (s *RewardService) Delete(id string) error                     { return s.repo.Delete(id) }
 func (s *RewardService) Approve(id string, approverID int64) error  { return s.repo.Approve(id, approverID) }
+func (s *RewardService) Reject(id string, approverID int64, reason string) error {
+	return s.repo.Reject(id, approverID, reason)
+}

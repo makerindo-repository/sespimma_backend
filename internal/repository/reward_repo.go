@@ -24,6 +24,10 @@ func (r *rewardRepo) GetPending() ([]models.UserReward, error) {
 }
 
 func (r *rewardRepo) Create(rw *models.UserReward) error {
+	// Maker-Checker: a reward assigned by patun/gadik is always created as
+	// pending and unapproved, regardless of what the client sent.
+	rw.Status = "pending"
+	rw.ApprovedBy = nil
 	return r.db.Create(rw).Error
 }
 
@@ -36,6 +40,15 @@ func (r *rewardRepo) Delete(id string) error {
 }
 
 func (r *rewardRepo) Approve(id string, approverID int64) error {
-	return r.db.Model(&models.UserReward{}).Where("id = ?", id).
+	return r.db.Model(&models.UserReward{}).Where("id = ? AND status = 'pending'", id).
 		Updates(map[string]interface{}{"approved_by": approverID, "status": "approved"}).Error
+}
+
+func (r *rewardRepo) Reject(id string, approverID int64, reason string) error {
+	return r.db.Model(&models.UserReward{}).Where("id = ? AND status = 'pending'", id).
+		Updates(map[string]interface{}{
+			"approved_by": approverID,
+			"status":      "rejected",
+			"notes":       reason,
+		}).Error
 }

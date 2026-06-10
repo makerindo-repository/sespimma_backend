@@ -23,7 +23,7 @@ func NewKegiatanService(
 	return &KegiatanService{repo: repo, absensi: absensi, izin: izin}
 }
 
-func (s *KegiatanService) GetAll() ([]models.Kegiatan, error)  { return s.repo.GetAll() }
+func (s *KegiatanService) GetAll() ([]models.Kegiatan, error)   { return s.repo.GetAll() }
 func (s *KegiatanService) GetRutin() ([]models.Kegiatan, error) { return s.repo.GetRutin() }
 func (s *KegiatanService) GetToday() ([]models.Kegiatan, error) { return s.repo.GetToday() }
 
@@ -67,13 +67,18 @@ func (s *KegiatanService) CheckIn(a *models.Absensi) error {
 		return errors.New("kegiatan tidak ditemukan")
 	}
 
-	// 2. Validate Distance
+	// 2. Validate Distance against the zone radius.
 	dist, err := s.repo.GetDistance(*a.KegiatanID, *a.Latitude, *a.Longitude)
 	if err != nil {
 		return errors.New("gagal menghitung jarak lokasi")
 	}
 
-	if k.Radius != nil && dist > *k.Radius {
+	withinRadius := k.Radius == nil || dist <= *k.Radius
+
+	// Geofencing (gps) requires being inside the radius. A QR check-in is
+	// authoritative on presence (the serdik scanned the zone's QR on-site),
+	// so it is accepted regardless, but we still record location validity.
+	if !withinRadius && a.Method != "qr_code" {
 		return errors.New("lokasi berada di luar radius zona absensi")
 	}
 
@@ -104,7 +109,7 @@ func (s *KegiatanService) CheckIn(a *models.Absensi) error {
 	}
 
 	a.Datetime = now
-	a.IsLocationValid = true
+	a.IsLocationValid = withinRadius
 
 	return s.absensi.Create(a)
 }
@@ -120,6 +125,12 @@ func (s *KegiatanService) GetAttendanceBySerdik(serdikID uint64) ([]models.Absen
 
 func (s *KegiatanService) GetAttendanceByKegiatan(kegiatanID uint64) ([]models.Absensi, error) {
 	return s.absensi.GetByKegiatanID(kegiatanID)
+}
+
+// GetAttendanceRecap returns the strict derived recap (hadir/telat/izin/tk)
+// across every past zone, with an accurate summary.
+func (s *KegiatanService) GetAttendanceRecap(serdikID uint64) ([]repository.RecapRecord, *repository.AbsensiSummary, error) {
+	return s.absensi.GetRecapBySerdik(serdikID)
 }
 
 // ---- Izin ----

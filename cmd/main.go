@@ -29,26 +29,26 @@ func main() {
 	db := config.DB
 
 	// ── Repositories ────────────────────────────────────────────────────
-	userRepo        := repository.NewUserRepository(db)
+	userRepo := repository.NewUserRepository(db)
 	locationLogRepo := repository.NewLocationLogRepository(db)
-	kegiatanRepo    := repository.NewKegiatanRepository(db)
-	absensiRepo     := repository.NewAbsensiRepository(db)
-	izinRepo        := repository.NewIzinRepository(db)
-	akademikRepo    := repository.NewAkademikRepository(db)
-	jasmaniRepo     := repository.NewJasmaniRepository(db)
-	mentalRepo      := repository.NewMentalRepository(db)
-	sociometryRepo  := repository.NewSociometryRepository(db)
-	healthRepo      := repository.NewHealthRepository(db)
-	rewardRepo      := repository.NewRewardRepository(db)
-	punishmentRepo  := repository.NewPunishmentRepository(db)
-	assignmentRepo  := repository.NewAssignmentRepository(db)
+	kegiatanRepo := repository.NewKegiatanRepository(db)
+	absensiRepo := repository.NewAbsensiRepository(db)
+	izinRepo := repository.NewIzinRepository(db)
+	akademikRepo := repository.NewAkademikRepository(db)
+	jasmaniRepo := repository.NewJasmaniRepository(db)
+	mentalRepo := repository.NewMentalRepository(db)
+	sociometryRepo := repository.NewSociometryRepository(db)
+	healthRepo := repository.NewHealthRepository(db)
+	rewardRepo := repository.NewRewardRepository(db)
+	punishmentRepo := repository.NewPunishmentRepository(db)
+	assignmentRepo := repository.NewAssignmentRepository(db)
 
 	// ── Services ────────────────────────────────────────────────────────
-	authSvc       := service.NewAuthService(userRepo, cfg.JWTSecret)
-	userSvc       := service.NewUserService(userRepo, locationLogRepo)
-	kegiatanSvc   := service.NewKegiatanService(kegiatanRepo, absensiRepo, izinRepo)
+	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
+	userSvc := service.NewUserService(userRepo, locationLogRepo)
+	kegiatanSvc := service.NewKegiatanService(kegiatanRepo, absensiRepo, izinRepo)
 	assessmentSvc := service.NewAssessmentService(akademikRepo, jasmaniRepo, mentalRepo, sociometryRepo, healthRepo)
-	rewardSvc     := service.NewRewardService(rewardRepo)
+	rewardSvc := service.NewRewardService(rewardRepo)
 	punishmentSvc := service.NewPunishmentService(punishmentRepo)
 	assignmentSvc := service.NewAssignmentService(assignmentRepo)
 
@@ -66,6 +66,9 @@ func main() {
 		Punishment: handler.NewPunishmentHandler(punishmentSvc),
 		Assignment: handler.NewAssignmentHandler(assignmentSvc),
 		WS:         handler.NewWSHandler(hub, cfg.JWTSecret),
+		Serdik:     handler.NewSerdikHandler(),
+		Dashboard:  handler.NewDashboardHandler(kegiatanSvc, rewardSvc, punishmentSvc),
+		RP:         handler.NewRewardPunishmentHandler(),
 	}
 
 	// ── HTTP Server ──────────────────────────────────────────────────────

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 
 	"sespima_api/internal/service"
@@ -67,16 +65,27 @@ func (h *RewardHandler) Delete(c *gin.Context) {
 }
 
 func (h *RewardHandler) Approve(c *gin.Context) {
-	userIDStr := c.Query("user_id")
-	approverID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		// fall back to token identity
-		uid, _ := c.Get("user_id")
-		approverID = int64(uid.(float64))
-	}
+	uid, _ := c.Get("user_id")
+	approverID := int64(uid.(float64))
 	if err := h.svc.Approve(c.Param("id"), approverID); err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
 	response.OK(c, "reward berhasil disetujui", nil)
+}
+
+type rejectReq struct {
+	Reason string `json:"reason"`
+}
+
+func (h *RewardHandler) Reject(c *gin.Context) {
+	uid, _ := c.Get("user_id")
+	approverID := int64(uid.(float64))
+	var req rejectReq
+	_ = c.ShouldBindJSON(&req)
+	if err := h.svc.Reject(c.Param("id"), approverID, req.Reason); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "reward berhasil ditolak", nil)
 }

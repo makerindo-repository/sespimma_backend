@@ -32,6 +32,37 @@ func (h *PunishmentHandler) GetByUserID(c *gin.Context) {
 	response.OK(c, "success", list)
 }
 
+func (h *PunishmentHandler) GetPending(c *gin.Context) {
+	list, err := h.svc.GetPending()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "success", list)
+}
+
+func (h *PunishmentHandler) Approve(c *gin.Context) {
+	uid, _ := c.Get("user_id")
+	approverID := int64(uid.(float64))
+	if err := h.svc.Approve(c.Param("id"), approverID); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "pelanggaran berhasil disetujui", nil)
+}
+
+func (h *PunishmentHandler) Reject(c *gin.Context) {
+	uid, _ := c.Get("user_id")
+	approverID := int64(uid.(float64))
+	var req rejectReq
+	_ = c.ShouldBindJSON(&req)
+	if err := h.svc.Reject(c.Param("id"), approverID, req.Reason); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "pelanggaran berhasil ditolak", nil)
+}
+
 func (h *PunishmentHandler) Create(c *gin.Context) {
 	var input models.PunishmentLog
 	if err := c.ShouldBindJSON(&input); err != nil {
