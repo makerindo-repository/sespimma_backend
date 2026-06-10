@@ -3,8 +3,6 @@ name: Deploy Backend to VPS
 on:
   push:
     branches: [main]
-    paths:
-      - 'sespimma_backend/**'
   workflow_dispatch:
 
 env:
@@ -14,10 +12,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: sespimma_backend
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,8 +19,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: sespimma_backend/go.mod
-          cache-dependency-path: sespimma_backend/go.sum
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
 
       - name: Tidy & verify
         run: |
@@ -34,8 +28,6 @@ jobs:
           go mod verify
 
       - name: Build Linux binary
-        # Build as api-go.new so the SCP doesn't overwrite the live binary
-        # (which would cause "text file busy" on the running process).
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags="-w -s" -o api-go.new ./cmd/main.go
@@ -46,9 +38,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
-          source: "sespimma_backend/api-go.new,sespimma_backend/migrations/"
+          source: "api-go.new,migrations/"
           target: ${{ env.APP_DIR }}
-          strip_components: 1
           overwrite: true
 
       - name: Run migrations, swap binary, restart
@@ -64,9 +55,10 @@ jobs:
             # ── Ensure runtime directories ────────────────────────────────
             mkdir -p "$APP_DIR/uploads/profile"
 
-            # ── Atomic binary swap (avoids "text file busy") ──────────────
-            # mv on the same filesystem is atomic — PM2 keeps running the
-            # old inode until it restarts, so no downtime gap.
+            # ── Atomic binary swap (avoids ETXTBSY "text file busy") ──────
+            # mv on the same filesystem is a single rename(2) syscall.
+            # PM2 keeps executing the old inode (unlinked but in memory)
+            # until pm2 restart picks up the new file — zero downtime.
             chmod +x "$APP_DIR/api-go.new"
             mv -f "$APP_DIR/api-go.new" "$APP_DIR/api-go"
 
