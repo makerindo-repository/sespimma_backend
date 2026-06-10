@@ -138,6 +138,28 @@ func (h *KegiatanHandler) GetAttendanceBySerdik(c *gin.Context) {
 	response.OK(c, "success", gin.H{"records": list, "summary": summary})
 }
 
+func (h *KegiatanHandler) GetMyAttendance(c *gin.Context) {
+	uid, exists := c.Get("user_id")
+	if !exists {
+		response.Forbidden(c, "unauthorized")
+		return
+	}
+	userID := uint64(uid.(float64))
+
+	var serdik models.Serdik
+	if err := config.DB.Where("user_id = ?", userID).First(&serdik).Error; err != nil {
+		response.Forbidden(c, "hanya serdik yang memiliki data absensi")
+		return
+	}
+
+	list, summary, err := h.svc.GetAttendanceBySerdik(uint64(serdik.ID))
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "success", gin.H{"records": list, "summary": summary})
+}
+
 func (h *KegiatanHandler) GetAttendanceByKegiatan(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("kegiatanId"), 10, 64)
 	if err != nil {

@@ -30,6 +30,7 @@ type KegiatanRepository interface {
 	GetRutin() ([]models.Kegiatan, error)
 	GetToday() ([]models.Kegiatan, error)
 	GetByID(id string) (*models.Kegiatan, error)
+	GetDistance(kegiatanID uint64, lat, lng float64) (float64, error)
 	Create(k *models.Kegiatan) error
 	Update(k *models.Kegiatan) error
 	Delete(id string) error
@@ -45,6 +46,7 @@ type AbsensiRepository interface {
 
 type AbsensiSummary struct {
 	PresentCount    int `json:"present_count"`
+	LateCount       int `json:"late_count"`
 	PermissionCount int `json:"permission_count"`
 	AbsentCount     int `json:"absent_count"`
 }

@@ -48,12 +48,12 @@ func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
 	r.Static("/uploads", "./uploads")
 
 	// Users / location
-	users := r.Group("/users")
+	users := api.Group("/users")
 	users.GET("", h.User.GetAll)
 	users.GET("/locations", h.User.GetAllLocations)
+	users.PUT("/me/location", auth, h.User.UpdateMyLocation)
 	users.GET("/:id/location", h.User.GetLocation)
 	users.PUT("/:id/location", h.User.UpdateLocation)
-	users.PUT("/me/location", auth, h.User.UpdateMyLocation)
 
 	// WebSocket — auth is via ?token= query param, not header
 	r.GET("/api/ws/locations", h.WS.StreamLocations)
@@ -71,6 +71,7 @@ func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
 	// Attendance
 	ab := api.Group("/absensi")
 	ab.POST("", h.Kegiatan.CheckIn)
+	ab.GET("/me", auth, h.Kegiatan.GetMyAttendance)
 	ab.GET("/serdik/:serdikId", h.Kegiatan.GetAttendanceBySerdik)
 	ab.GET("/kegiatan/:kegiatanId", h.Kegiatan.GetAttendanceByKegiatan)
 

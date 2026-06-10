@@ -38,12 +38,13 @@ func (r *absensiRepo) GetByKegiatanID(kegiatanID uint64) ([]models.Absensi, erro
 func (r *absensiRepo) GetSummaryBySerdik(serdikID uint64) (*AbsensiSummary, error) {
 	type row struct {
 		Status string
+		IsLate bool
 		Count  int
 	}
 	var rows []row
 	err := r.db.Raw(`
-		SELECT status, COUNT(*) AS count FROM absensi
-		WHERE serdik_id = ? GROUP BY status`, serdikID).Scan(&rows).Error
+		SELECT status, is_late, COUNT(*) AS count FROM absensi
+		WHERE serdik_id = ? GROUP BY status, is_late`, serdikID).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,11 @@ func (r *absensiRepo) GetSummaryBySerdik(serdikID uint64) (*AbsensiSummary, erro
 	for _, r := range rows {
 		switch r.Status {
 		case "hadir":
-			s.PresentCount = r.Count
+			if r.IsLate {
+				s.LateCount += r.Count
+			} else {
+				s.PresentCount += r.Count
+			}
 		case "izin", "sakit":
 			s.PermissionCount += r.Count
 		case "tk", "alpha":

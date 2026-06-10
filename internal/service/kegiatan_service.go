@@ -1,6 +1,10 @@
 package service
 
 import (
+	"errors"
+	"fmt"
+	"time"
+
 	"sespima_api/internal/repository"
 	"sespima_api/models"
 )
@@ -49,6 +53,59 @@ func (s *KegiatanService) Delete(id string) error { return s.repo.Delete(id) }
 // ---- Absensi ----
 
 func (s *KegiatanService) CheckIn(a *models.Absensi) error {
+	if a.KegiatanID == nil {
+		return errors.New("kegiatan_id is required")
+	}
+	if a.Latitude == nil || a.Longitude == nil {
+		return errors.New("latitude and longitude are required")
+	}
+
+	// 1. Fetch Kegiatan (Zone)
+	kegiatanIDStr := fmt.Sprintf("%d", *a.KegiatanID)
+	k, err := s.repo.GetByID(kegiatanIDStr)
+	if err != nil {
+		return errors.New("kegiatan tidak ditemukan")
+	}
+
+	// 2. Validate Distance
+	dist, err := s.repo.GetDistance(*a.KegiatanID, *a.Latitude, *a.Longitude)
+	if err != nil {
+		return errors.New("gagal menghitung jarak lokasi")
+	}
+
+	if k.Radius != nil && dist > *k.Radius {
+		return errors.New("lokasi berada di luar radius zona absensi")
+	}
+
+	// 3. Validate Time
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	now := time.Now().In(loc)
+
+	// Build deadline and cutoff times using TanggalMulai + time strings
+	dateStr := k.TanggalMulai.Format("2006-01-02")
+	deadlineStr := fmt.Sprintf("%s %s", dateStr, k.BatasWaktuPenugasan)
+	deadline, _ := time.ParseInLocation("2006-01-02 15:04:05", deadlineStr, loc)
+
+	cutoffStr := fmt.Sprintf("%s 23:59:59", dateStr)
+	if k.CutoffTime != nil {
+		cutoffStr = fmt.Sprintf("%s %s", dateStr, *k.CutoffTime)
+	}
+	cutoff, _ := time.ParseInLocation("2006-01-02 15:04:05", cutoffStr, loc)
+
+	if now.After(cutoff) {
+		a.Status = models.AttendanceStatusTK
+		a.IsLate = true
+	} else if now.After(deadline) {
+		a.Status = models.AttendanceStatusHadir
+		a.IsLate = true
+	} else {
+		a.Status = models.AttendanceStatusHadir
+		a.IsLate = false
+	}
+
+	a.Datetime = now
+	a.IsLocationValid = true
+
 	return s.absensi.Create(a)
 }
 

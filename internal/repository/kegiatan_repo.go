@@ -37,6 +37,12 @@ func (r *kegiatanRepo) GetByID(id string) (*models.Kegiatan, error) {
 	return &k, err
 }
 
+func (r *kegiatanRepo) GetDistance(kegiatanID uint64, lat, lng float64) (float64, error) {
+	var distance float64
+	err := r.db.Raw("SELECT ST_Distance(Location, ST_SetSRID(ST_MakePoint(?, ?), 4326)) FROM kegiatan WHERE id = ?", lng, lat, kegiatanID).Scan(&distance).Error
+	return distance, err
+}
+
 func (r *kegiatanRepo) Create(k *models.Kegiatan) error {
 	return r.db.Create(k).Error
 }
