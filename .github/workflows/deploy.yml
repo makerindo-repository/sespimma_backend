@@ -32,6 +32,15 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags="-w -s" -o api-go.new ./cmd/main.go
 
+      - name: Clean old migrations on VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            rm -rf /var/www/sespimma-api-go/migrations
+
       - name: Copy binary + migrations to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
