@@ -82,11 +82,29 @@ func (h *KegiatanHandler) Delete(c *gin.Context) {
 // ---- Absensi ----
 
 func (h *KegiatanHandler) CheckIn(c *gin.Context) {
+	uid, exists := c.Get("user_id")
+	if !exists {
+		response.Forbidden(c, "unauthorized")
+		return
+	}
+	userID := uint64(uid.(float64))
+
+	var serdik models.Serdik
+	if err := config.DB.Where("user_id = ?", userID).First(&serdik).Error; err != nil {
+		response.Forbidden(c, "hanya serdik yang dapat melakukan checkin")
+		return
+	}
+
 	var input models.Absensi
 	if err := c.ShouldBindJSON(&input); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
+	
+	input.UserID = &userID
+	serdikID := uint64(serdik.ID)
+	input.SerdikID = &serdikID
+
 	if err := h.svc.CheckIn(&input); err != nil {
 		response.InternalError(c, err.Error())
 		return
