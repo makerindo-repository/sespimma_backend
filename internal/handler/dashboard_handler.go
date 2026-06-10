@@ -2,6 +2,7 @@ package handler
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -76,39 +77,35 @@ func (h *DashboardHandler) GetSerdikDashboard(c *gin.Context) {
 	}
 	db := config.DB
 
-	// ── Approved rewards / punishments (the only ones that count) ─────────
-	var rewards []rpItem
-	db.Raw(`
-		SELECT ur.id, ri.kegiatan AS name, ur.point, ur.qty, ur.reward_date AS date, ur.notes
-		FROM user_rewards ur
-		JOIN reward_items ri ON ri.id = ur.reward_item_id
-		WHERE ur.user_id = ? AND ur.status = 'approved'
-		ORDER BY ur.reward_date DESC`, userID).Scan(&rewards)
-
-	var punishments []rpItem
-	db.Raw(`
-		SELECT pl.id, pi.activity AS name, pl.point, pl.qty, pl.violation_date AS date, pl.notes
-		FROM punishment_logs pl
-		JOIN punishment_items pi ON pi.id = pl.punishment_item_id
-		WHERE pl.user_id = ? AND pl.status = 'approved'
-		ORDER BY pl.violation_date DESC`, userID).Scan(&punishments)
+	// ── Approved RP records ─────────
+	var rpRecords []models.RewardPunishmentRecord
+	db.Preload("Rule").
+		Where("serdik_id = ? AND status = 'approved'", serdik.ID).
+		Order("created_at DESC").
+		Find(&rpRecords)
 
 	var rewardTotal, punishmentTotal float64
-	for _, r := range rewards {
-		rewardTotal += r.Point * float64(maxInt(r.Qty, 1))
-	}
-	for _, p := range punishments {
-		punishmentTotal += p.Point * float64(maxInt(p.Qty, 1))
+	for _, rec := range rpRecords {
+		if rec.Type == "REWARD" {
+			rewardTotal += rec.Point
+		} else if rec.Type == "PUNISHMENT" {
+			punishmentTotal += rec.Point
+		}
 	}
 
+	netAdjustment := round2(rewardTotal - punishmentTotal)
+	
 	// ── Assessment scores (avg per category, by serdik_id) ────────────────
+	baseNilaiMental := 80.0
+	calculatedMental := baseNilaiMental + netAdjustment
+
 	scores := scoreBlock{
 		NilaiAkademik:   avgNilai(db, "penilaian_akademik", serdik.ID),
 		NilaiJasmani:    avgNilai(db, "penilaian_jasmani", serdik.ID),
-		NilaiMental:     avgNilai(db, "penilaian_mental", serdik.ID),
+		NilaiMental:     round2(calculatedMental),
 		RewardTotal:     round2(rewardTotal),
 		PunishmentTotal: round2(punishmentTotal),
-		NetAdjustment:   round2(rewardTotal - punishmentTotal),
+		NetAdjustment:   netAdjustment,
 	}
 
 	// ── Attendance summary + records ──────────────────────────────────────
@@ -118,18 +115,56 @@ func (h *DashboardHandler) GetSerdikDashboard(c *gin.Context) {
 		summary = nil
 	}
 
-	// ── Activity history (merged, newest first) ───────────────────────────
-	history := make([]activityItem, 0, len(rewards)+len(punishments)+len(absList))
-	for _, r := range rewards {
-		history = append(history, activityItem{
-			Type: "reward", Title: r.Name, Description: derefNote(r.Notes),
-			Points: r.Point, Status: "approved", Timestamp: r.Date,
-		})
+	// ── Backward compatibility for Flutter payload ──────────────────────
+	var rewards []rpItem
+	var punishments []rpItem
+	
+	for _, rec := range rpRecords {
+		desc := ""
+		if rec.Description != nil {
+			desc = *rec.Description
+		}
+		
+		item := rpItem{
+			ID:    rec.ID,
+			Name:  rec.Rule.Description,
+			Point: rec.Point,
+			Qty:   1,
+			Date:  rec.CreatedAt,
+			Notes: &desc,
+		}
+		
+		if rec.Type == "REWARD" {
+			rewards = append(rewards, item)
+		} else if rec.Type == "PUNISHMENT" {
+			punishments = append(punishments, item)
+		}
 	}
-	for _, p := range punishments {
+
+	// ── Activity history (merged, newest first) ───────────────────────────
+	history := make([]activityItem, 0, len(rpRecords)+len(absList))
+	for _, rec := range rpRecords {
+		title := ""
+		if rec.Rule != nil {
+			title = rec.Rule.Description
+		}
+		desc := ""
+		if rec.Description != nil {
+			desc = *rec.Description
+		}
+		
+		p := rec.Point
+		if rec.Type == "PUNISHMENT" {
+			p = -rec.Point
+		}
+		
 		history = append(history, activityItem{
-			Type: "punishment", Title: p.Name, Description: derefNote(p.Notes),
-			Points: -p.Point, Status: "approved", Timestamp: p.Date,
+			Type:        strings.ToLower(rec.Type),
+			Title:       title,
+			Description: desc,
+			Points:      p,
+			Status:      rec.Status,
+			Timestamp:   rec.CreatedAt,
 		})
 	}
 	for _, a := range absList {
@@ -164,29 +199,25 @@ func (h *DashboardHandler) GetSerdikDashboard(c *gin.Context) {
 	})
 }
 
-// GetKorsisInbox returns everything awaiting Korsis approval: pending rewards,
-// pending punishments, and pending leave (izin) requests.
 func (h *DashboardHandler) GetKorsisInbox(c *gin.Context) {
-	rewards, err := h.reward.GetPending()
-	if err != nil {
+	// Fetch pending RP records
+	var rpRecords []models.RewardPunishmentRecord
+	if err := config.DB.Where("status = 'pending'").
+		Preload("Serdik").Preload("Rule").
+		Order("created_at DESC").Find(&rpRecords).Error; err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
-	punishments, err := h.punishment.GetPending()
-	if err != nil {
-		response.InternalError(c, err.Error())
-		return
-	}
+
 	izin, err := h.kegiatan.GetPendingIzin()
 	if err != nil {
 		izin = nil
 	}
 
 	response.OK(c, "success", gin.H{
-		"rewards":       rewards,
-		"punishments":   punishments,
+		"rp_records":    rpRecords,
 		"izin":          izin,
-		"total_pending": len(rewards) + len(punishments) + len(izin),
+		"total_pending": len(rpRecords) + len(izin),
 	})
 }
 

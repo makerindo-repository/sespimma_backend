@@ -3,6 +3,7 @@ package handler
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -102,6 +103,15 @@ func (h *RewardPunishmentHandler) CreateRecord(c *gin.Context) {
 		return
 	}
 
+	role, _ := c.Get("role")
+	status := "pending"
+	msg := "pengajuan berhasil dikirim, menunggu persetujuan Korsis"
+	
+	if role == "korsis" || role == "operator" {
+		status = "approved"
+		msg = "reward/punishment berhasil ditambahkan"
+	}
+
 	mid := int64(makerID)
 	rec := models.RewardPunishmentRecord{
 		SerdikID:       req.SerdikID,
@@ -111,14 +121,20 @@ func (h *RewardPunishmentHandler) CreateRecord(c *gin.Context) {
 		Point:          rule.Point,
 		Description:    req.Description,
 		AttachmentPath: req.AttachmentPath,
-		Status:         "pending",
+		Status:         status,
 		CreatedBy:      &mid,
 	}
+	if status == "approved" {
+		rec.ApprovedBy = &mid
+		now := time.Now()
+		rec.ReviewedAt = &now
+	}
+
 	if err := config.DB.Create(&rec).Error; err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
-	response.Created(c, "pengajuan berhasil dikirim, menunggu persetujuan Korsis", rec)
+	response.Created(c, msg, rec)
 }
 
 // GetPending lists all pending records for the Korsis approval inbox.
@@ -168,4 +184,69 @@ func (h *RewardPunishmentHandler) GetMyRecords(c *gin.Context) {
 		return
 	}
 	response.OK(c, "success", recs)
+}
+
+// ApproveRecord approves a pending RP record
+func (h *RewardPunishmentHandler) ApproveRecord(c *gin.Context) {
+	checkerID, ok := userIDFromCtx(c)
+	if !ok {
+		response.Unauthorized(c, "sesi tidak valid")
+		return
+	}
+
+	id := c.Param("id")
+	var rec models.RewardPunishmentRecord
+	if err := config.DB.Where("id = ? AND status = 'pending'", id).First(&rec).Error; err != nil {
+		response.NotFound(c, "data pending tidak ditemukan")
+		return
+	}
+
+	cid := int64(checkerID)
+	now := time.Now()
+	rec.Status = "approved"
+	rec.ApprovedBy = &cid
+	rec.ReviewedAt = &now
+
+	if err := config.DB.Save(&rec).Error; err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "pengajuan berhasil disetujui", rec)
+}
+
+// RejectRecord rejects a pending RP record
+func (h *RewardPunishmentHandler) RejectRecord(c *gin.Context) {
+	checkerID, ok := userIDFromCtx(c)
+	if !ok {
+		response.Unauthorized(c, "sesi tidak valid")
+		return
+	}
+
+	id := c.Param("id")
+	var rec models.RewardPunishmentRecord
+	if err := config.DB.Where("id = ? AND status = 'pending'", id).First(&rec).Error; err != nil {
+		response.NotFound(c, "data pending tidak ditemukan")
+		return
+	}
+
+	var req struct {
+		Reason string `json:"rejection_reason" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	cid := int64(checkerID)
+	now := time.Now()
+	rec.Status = "rejected"
+	rec.ApprovedBy = &cid
+	rec.ReviewedAt = &now
+	rec.RejectionReason = &req.Reason
+
+	if err := config.DB.Save(&rec).Error; err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.OK(c, "pengajuan ditolak", rec)
 }
