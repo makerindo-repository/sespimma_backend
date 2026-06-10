@@ -174,7 +174,7 @@ func Register(r *gin.Engine, h *Handlers, jwtSecret string) {
 	rp := api.Group("/rp")
 	rp.GET("/rules", middleware.RequireRoles(makerCheckerRoles...), h.RP.GetRules)
 	rp.GET("/serdik/search", middleware.RequireRoles(makerCheckerRoles...), h.RP.SearchSerdik)
-	rp.POST("/records", middleware.RequireRoles("patun", "gadik", "operator"), h.RP.CreateRecord)
+	rp.POST("/records", middleware.RequireRoles(makerCheckerRoles...), h.RP.CreateRecord)
 	rp.GET("/records/pending", middleware.RequireRoles("korsis", "operator"), h.RP.GetPending)
 	rp.PUT("/records/:id/approve", middleware.RequireRoles("korsis", "operator"), h.RP.ApproveRecord)
 	rp.PUT("/records/:id/reject", middleware.RequireRoles("korsis", "operator"), h.RP.RejectRecord)
