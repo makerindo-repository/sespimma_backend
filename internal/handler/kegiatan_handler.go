@@ -187,11 +187,12 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 		RadiusMeters float64 `json:"radius_meters"`
 		StartTime    string  `json:"start_time"`
 		EndTime      string  `json:"end_time"`
-		Deadline     string  `json:"deadline"`
-		CutoffTime   string  `json:"cutoff_time"`
-		IsRoutine    bool    `json:"is_routine"`
-		IsTraining   bool    `json:"is_training"`
-		CreatedAt    string  `json:"created_at"`
+		Deadline      string           `json:"deadline"`
+		CutoffTime    string           `json:"cutoff_time"`
+		IsRoutine     bool             `json:"is_routine"`
+		IsTraining    bool             `json:"is_training"`
+		CreatedAt     string           `json:"created_at"`
+		PolygonPoints *json.RawMessage `json:"polygon_points,omitempty"`
 	}
 
 	rows, err := config.DB.Raw(`
@@ -209,7 +210,8 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 			COALESCE(cutoff_time, batas_waktu_penugasan)::text AS cutoff_time,
 			is_rutin,
 			is_pelatihan,
-			created_at::text                               AS created_at
+			created_at::text                               AS created_at,
+			polygon_points
 		FROM kegiatan
 		WHERE tanggal_mulai::date = CURRENT_DATE
 		  AND location IS NOT NULL
@@ -226,27 +228,29 @@ func (h *KegiatanHandler) GetTodayZones(c *gin.Context) {
 			ID, Nama, NamaLokasi, TanggalMulai, WaktuMulai, WaktuSelesai, BatasWaktu, Cutoff, CreatedAt string
 			Lat, Lng, Radius                                                                            float64
 			IsRutin, IsPelatihan                                                                        bool
+			PolygonPoints                                                                               *json.RawMessage
 		}
 		if err := rows.Scan(&z.ID, &z.Nama, &z.NamaLokasi, &z.Lat, &z.Lng, &z.Radius,
 			&z.TanggalMulai, &z.WaktuMulai, &z.WaktuSelesai, &z.BatasWaktu, &z.Cutoff,
-			&z.IsRutin, &z.IsPelatihan, &z.CreatedAt); err != nil {
+			&z.IsRutin, &z.IsPelatihan, &z.CreatedAt, &z.PolygonPoints); err != nil {
 			continue
 		}
 		base := z.TanggalMulai[:10] // "YYYY-MM-DD"
 		zones = append(zones, ZoneResp{
-			ID:           z.ID,
-			Name:         z.NamaLokasi,
-			ActivityName: z.Nama,
-			Latitude:     z.Lat,
-			Longitude:    z.Lng,
-			RadiusMeters: z.Radius,
-			StartTime:    fmt.Sprintf("%sT%s+07:00", base, z.WaktuMulai[:5]),
-			EndTime:      fmt.Sprintf("%sT%s+07:00", base, z.WaktuSelesai[:5]),
-			Deadline:     fmt.Sprintf("%sT%s+07:00", base, z.BatasWaktu[:5]),
-			CutoffTime:   fmt.Sprintf("%sT%s+07:00", base, z.Cutoff[:5]),
-			IsRoutine:    z.IsRutin,
-			IsTraining:   z.IsPelatihan,
-			CreatedAt:    z.CreatedAt,
+			ID:            z.ID,
+			Name:          z.NamaLokasi,
+			ActivityName:  z.Nama,
+			Latitude:      z.Lat,
+			Longitude:     z.Lng,
+			RadiusMeters:  z.Radius,
+			StartTime:     fmt.Sprintf("%sT%s+07:00", base, z.WaktuMulai[:5]),
+			EndTime:       fmt.Sprintf("%sT%s+07:00", base, z.WaktuSelesai[:5]),
+			Deadline:      fmt.Sprintf("%sT%s+07:00", base, z.BatasWaktu[:5]),
+			CutoffTime:    fmt.Sprintf("%sT%s+07:00", base, z.Cutoff[:5]),
+			IsRoutine:     z.IsRutin,
+			IsTraining:    z.IsPelatihan,
+			CreatedAt:     z.CreatedAt,
+			PolygonPoints: z.PolygonPoints,
 		})
 	}
 	if zones == nil {
