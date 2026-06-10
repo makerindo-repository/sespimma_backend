@@ -69,7 +69,6 @@ jobs:
             export PGPASSWORD="$DB_PASS"
             PSQL="psql -U dafayape -d db_sespimma -h 127.0.0.1"
             $PSQL -c "CREATE TABLE IF NOT EXISTS _ci_migrations (filename VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
-            $PSQL -c "TRUNCATE _ci_migrations;"
             for file in "$APP"/migrations/*.sql; do
               [ -f "$file" ] || continue
               fname="$(basename "$file")"
