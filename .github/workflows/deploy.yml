@@ -66,7 +66,7 @@ jobs:
               applied="$($PSQL -tAc "SELECT 1 FROM _ci_migrations WHERE filename='$fname';")"
               if [ "$applied" != "1" ]; then
                 echo "Applying $fname ..."
-                $PSQL --set ON_ERROR_STOP=on -f "$file"
+                sed '/^-- +goose Down/,$d' "$file" | $PSQL --set ON_ERROR_STOP=on -f -
                 $PSQL -c "INSERT INTO _ci_migrations (filename) VALUES ('$fname');"
               else
                 echo "Skipping $fname (already applied)"
